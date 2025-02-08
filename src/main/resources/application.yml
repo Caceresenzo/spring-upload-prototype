@@ -1,0 +1,50 @@
+amazon:
+  credentials:
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
+logging:
+  include-application-name: false
+spring:
+  application:
+    name: spring-upload-prototype
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: jdbc:mysql://${DATABASE_HOST:localhost}:${DATABASE_PORT:3306}/${DATABASE_NAME:${spring.application.name}}?createDatabaseIfNotExist=true&useSSL=false&useUnicode=true&characterEncoding=utf8&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC
+    username: ${DATABASE_USER:root}
+    password: ${DATABASE_PASSWORD:password}
+    driver-class-name: com.mysql.jdbc.Driver
+  jpa:
+    generate-ddl: false
+    hibernate:
+      ddl-auto: update
+#      ddl-auto: validate
+    show-sql: false #true
+#    show-sql: true #false
+    properties:
+      hibernate:
+        globally_quoted_identifiers: true
+        enable_lazy_load_no_trans: true
+  flyway:
+    validate-migration-naming: true
+  error:
+    handling:
+      add-path-to-error: true
+      exception-logging: message-only
+      full-stacktrace-http-statuses:
+      - 5xx
+      log-levels:
+        4xx: DEBUG
+springdoc:
+  api-docs:
+    enabled: true
+    path: spec.json
+  swagger-ui:
+    enabled: true
+    use-root-path: true
+    try-it-out-enabled: true
+    url: /spec.json
+    config-url: /spec.json/swagger-config
+    tags-sorter: alpha
+    operations-sorter: alpha
+# debug: true
