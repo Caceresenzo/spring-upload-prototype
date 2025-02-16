@@ -2,6 +2,7 @@ amazon:
   credentials:
     access-key: ${AWS_ACCESS_KEY_ID}
     secret-key: ${AWS_SECRET_ACCESS_KEY}
+  bucket-name: crunchdao--playground--enzo
 logging:
   include-application-name: false
 spring:
@@ -19,8 +20,8 @@ spring:
     hibernate:
       ddl-auto: update
 #      ddl-auto: validate
-    show-sql: false #true
-#    show-sql: true #false
+#    show-sql: false #true
+    show-sql: true #false
     properties:
       hibernate:
         globally_quoted_identifiers: true
