@@ -22,13 +22,12 @@ import com.example.demo.storage.ObjectIdentifier;
 import com.example.demo.storage.PresignedUploadRequest;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UploadService {
-
-	public static final String INCOMPLETE_STATUS = "The upload is incomplete. Some chunk are missing.";
-	public static final String IN_PROGRESS_UPLOAD_CHUNK_X_STATUS = "The upload is in progress. Uploading chunk #%d.";
 
 	private final UploadRepository uploadRepository;
 	private final UploadChunkRepository uploadChunkRepository;
@@ -86,7 +85,7 @@ public class UploadService {
 	public PresignedUploadRequest getChunkUri(UploadChunk chunk) {
 		final var upload = chunk.getUpload();
 
-		upload.setStatus(Status.IN_PROGRESS, IN_PROGRESS_UPLOAD_CHUNK_X_STATUS.formatted(chunk.getNumber()));
+		upload.setStatus(Status.IN_PROGRESS, UploadStatusMessages.inProgress(chunk));
 		uploadRepository.save(upload);
 
 		return blobStore.presignChunkUploadUri(
@@ -121,14 +120,25 @@ public class UploadService {
 	}
 
 	public Upload abort(Upload upload, String reason) {
+		log.info("aborting upload - id={} reason=`{}`", upload.getId(), reason);
+
 		upload.setStatus(Upload.Status.FAILED, reason);
+
+		final var aborted = blobStore.abortChunkedUpload(
+			toStorageKey(upload),
+			upload.getProviderId()
+		);
+
+		if (!aborted) {
+			log.warn("could not abort chunked upload, has it already been aborted? - providerId={}", upload.getProviderId());
+		}
 
 		return uploadRepository.save(upload);
 	}
 
 	public Upload complete(Upload upload) {
 		if (upload.hasIncompleteChunk()) {
-			abort(upload, INCOMPLETE_STATUS);
+			abort(upload, UploadStatusMessages.incomplete());
 
 			throw new IncompleteUploadException(upload);
 		}

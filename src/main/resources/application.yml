@@ -20,8 +20,8 @@ spring:
     hibernate:
       ddl-auto: update
 #      ddl-auto: validate
-#    show-sql: false #true
-    show-sql: true #false
+    show-sql: false #true
+#    show-sql: true #false
     properties:
       hibernate:
         globally_quoted_identifiers: true

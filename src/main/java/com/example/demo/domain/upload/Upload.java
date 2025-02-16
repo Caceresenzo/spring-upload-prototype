@@ -23,7 +23,9 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import lombok.experimental.Accessors;
 import lombok.experimental.FieldNameConstants;
 
@@ -74,6 +76,8 @@ public class Upload {
 	@Column(nullable = false)
 	private LocalDateTime createdAt;
 
+	@ToString.Exclude
+	@EqualsAndHashCode.Exclude
 	@OneToMany(mappedBy = UploadChunk.Fields.upload, cascade = CascadeType.PERSIST)
 	private List<UploadChunk> chunks;
 

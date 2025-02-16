@@ -20,7 +20,7 @@ public interface BlobStore {
 
 	ObjectInfo completeChunkedUpload(ObjectIdentifier identifier, String uploadId, List<String> hashes);
 
-	void abortChunkedUpload(ObjectIdentifier identifier, String uploadId);
+	boolean abortChunkedUpload(ObjectIdentifier identifier, String uploadId);
 
 	enum ChunkHashValidationResult {
 

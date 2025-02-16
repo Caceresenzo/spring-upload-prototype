@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.ListPartsRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchUploadException;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.UploadPartPresignRequest;
@@ -152,14 +153,20 @@ public class S3BlobStore implements BlobStore {
 	}
 
 	@Override
-	public void abortChunkedUpload(ObjectIdentifier identifier, String uploadId) {
-		s3Client.abortMultipartUpload(
-			AbortMultipartUploadRequest.builder()
-				.bucket(bucketName)
-				.key(identifier.key())
-				.uploadId(uploadId)
-				.build()
-		);
+	public boolean abortChunkedUpload(ObjectIdentifier identifier, String uploadId) {
+		try {
+			s3Client.abortMultipartUpload(
+				AbortMultipartUploadRequest.builder()
+					.bucket(bucketName)
+					.key(identifier.key())
+					.uploadId(uploadId)
+					.build()
+			);
+
+			return true;
+		} catch (NoSuchUploadException __) {
+			return false;
+		}
 	}
 
 	public static PresignedUploadRequest.HttpMethod mapMethod(SdkHttpMethod sdkHttpMethod) {
