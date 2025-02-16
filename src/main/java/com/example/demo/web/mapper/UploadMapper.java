@@ -18,7 +18,7 @@ public class UploadMapper {
 			.setId(upload.getUuid())
 			.setName(upload.getName())
 			.setSize(upload.getSize())
-			.setChunkCount(upload.getChunkCount())
+			.setChunked(upload.isChunked())
 			.setStatus(upload.getStatus())
 			.setStatusMessage(upload.getStatusMessage())
 			.setProvider(upload.getProvider())

@@ -53,7 +53,7 @@ public class Upload {
 	private long size;
 
 	@Column
-	private Long chunkCount;
+	private boolean chunked;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
@@ -66,7 +66,7 @@ public class Upload {
 	@Column(nullable = false)
 	private Provider provider;
 
-	@Column(nullable = false)
+	@Column
 	private String providerId;
 
 	@Column(nullable = false)
@@ -100,17 +100,18 @@ public class Upload {
 		this.createdAt = LocalDateTime.now();
 		this.expiresAt = createdAt.plus(expiration);
 
-		if (chunkSize != null) {
-			this.chunkCount = 0l;
-			this.generateChunks(chunkSize);
+		this.chunks = new ArrayList<>();
+
+		if (chunkSize == null) {
+			this.chunked = false;
+			this.addChunk(0, size, true);
 		} else {
-			this.chunkCount = null;
+			this.chunked = true;
+			this.generateChunks(chunkSize);
 		}
 	}
 
 	private void generateChunks(long maxChunkSize) {
-		this.chunks = new ArrayList<>();
-
 		var offset = 0l;
 		var remaining = size;
 
@@ -141,19 +142,13 @@ public class Upload {
 	}
 
 	private void addChunk(long offset, long size, boolean last) {
-		++chunkCount;
-
 		this.chunks.add(new UploadChunk(
 			this,
-			chunkCount,
+			this.chunks.size() + 1,
 			offset,
 			size,
 			last
 		));
-	}
-
-	public boolean isChunked() {
-		return chunkCount != null;
 	}
 
 	public List<String> getChunkHashes() {
@@ -163,12 +158,12 @@ public class Upload {
 	}
 
 	public boolean hasIncompleteChunk() {
-		if (!isChunked()) {
-			throw new IllegalStateException("non chunked upload cannot be incomplete");
-		}
-
 		return chunks.stream()
 			.anyMatch(UploadChunk::isIncompleted);
+	}
+
+	public boolean hasProviderId() {
+		return providerId != null;
 	}
 
 	public void setStatus(Status status, String message) {
@@ -182,6 +177,7 @@ public class Upload {
 		IN_PROGRESS,
 		SUCCEEDED,
 		FAILED,
+		EXPIRED,
 
 	}
 

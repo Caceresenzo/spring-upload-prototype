@@ -68,7 +68,7 @@ public class UploadRestControllerV1 {
 		final var upload = uploadService.getUpload(uploadId);
 		final var chunk = uploadService.getChunk(upload, chunkNumber);
 
-		return uploadService.getChunkUri(chunk);
+		return uploadService.getChunkRequest(chunk);
 	}
 
 	@Transactional

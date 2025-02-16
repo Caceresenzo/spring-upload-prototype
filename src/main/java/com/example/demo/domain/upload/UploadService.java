@@ -52,14 +52,14 @@ public class UploadService {
 		DataSize size,
 		Optional<DataSize> preferredChunkSize
 	) {
-		final var chunkSize = uploadProperties.getChunkSize().clamp(preferredChunkSize).toBytes();
+		Long chunkSize = uploadProperties.getChunkSize().clamp(preferredChunkSize).toBytes();
 		final var expiration = uploadProperties.getMaxDuration();
 
 		if (blobStore.getMinimumChunkUploadSize().compareTo(size) > 0) {
-			throw new UnsupportedOperationException("direct upload not supported yet");
+			chunkSize = null;
 		}
 
-		final var upload = new Upload(
+		var upload = new Upload(
 			name,
 			size.toBytes(),
 			chunkSize,
@@ -67,46 +67,61 @@ public class UploadService {
 			expiration
 		);
 
-		final var metadata = Map.of(
-			"user.id", "1",
-			"upload.uuid", String.valueOf(upload.getUuid())
-		);
-
-		final var providerId = blobStore.beginChunkedUpload(
-			toStorageKey(upload),
-			metadata
-		);
-
-		upload.setProviderId(providerId);
-
 		return uploadRepository.save(upload);
 	}
 
-	public PresignedUploadRequest getChunkUri(UploadChunk chunk) {
+	public PresignedUploadRequest getChunkRequest(UploadChunk chunk) {
 		final var upload = chunk.getUpload();
 
-		upload.setStatus(Status.IN_PROGRESS, UploadStatusMessages.inProgress(chunk));
-		uploadRepository.save(upload);
+		if (upload.isChunked()) {
+			upload.setStatus(Status.IN_PROGRESS, UploadStatusMessages.inProgress(chunk));
 
-		return blobStore.presignChunkUploadUri(
-			toStorageKey(upload),
-			upload.getProviderId(),
-			uploadProperties.getMaxDuration(),
-			(int) chunk.getNumber(),
-			DataSize.ofBytes(chunk.getSize())
-		);
+			final var providerId = blobStore.beginChunkedUpload(
+				toStorageKey(upload),
+				getUploadMetadata(upload)
+			);
+
+			upload.setProviderId(providerId);
+
+			uploadRepository.save(upload);
+
+			return blobStore.presignChunkUploadRequest(
+				toStorageKey(upload),
+				upload.getProviderId(),
+				uploadProperties.getMaxDuration(),
+				(int) chunk.getNumber(),
+				DataSize.ofBytes(chunk.getSize())
+			);
+		} else {
+			upload.setStatus(Status.IN_PROGRESS, UploadStatusMessages.inProgress());
+
+			return blobStore.presignDirectUploadRequest(
+				toStorageKey(upload),
+				uploadProperties.getMaxDuration(),
+				DataSize.ofBytes(chunk.getSize()),
+				getUploadMetadata(upload)
+			);
+		}
 	}
 
 	@Transactional(propagation = Propagation.REQUIRED)
 	public UploadChunk confirmChunk(UploadChunk chunk, String hash) {
 		final var upload = chunk.getUpload();
 
-		final var result = blobStore.validateChunkHash(
-			toStorageKey(upload),
-			upload.getProviderId(),
-			(int) chunk.getNumber(),
-			hash
-		);
+		BlobStore.HashValidationResult result;
+		if (upload.isChunked()) {
+			result = blobStore.validateChunkHash(
+				toStorageKey(upload),
+				upload.getProviderId(),
+				(int) chunk.getNumber(),
+				hash
+			);
+		} else {
+			result = blobStore.validateDirectHash(
+				toStorageKey(upload),
+				hash
+			);
+		}
 
 		switch (result) {
 			case MISSING -> throw new MissingUploadChunkHashException(chunk);
@@ -124,13 +139,15 @@ public class UploadService {
 
 		upload.setStatus(Upload.Status.FAILED, reason);
 
-		final var aborted = blobStore.abortChunkedUpload(
-			toStorageKey(upload),
-			upload.getProviderId()
-		);
+		if (upload.isChunked() && upload.hasProviderId()) {
+			final var aborted = blobStore.abortChunkedUpload(
+				toStorageKey(upload),
+				upload.getProviderId()
+			);
 
-		if (!aborted) {
-			log.warn("could not abort chunked upload, has it already been aborted? - providerId={}", upload.getProviderId());
+			if (!aborted) {
+				log.warn("could not abort chunked upload, has it already been aborted? - providerId={}", upload.getProviderId());
+			}
 		}
 
 		return uploadRepository.save(upload);
@@ -143,18 +160,28 @@ public class UploadService {
 			throw new IncompleteUploadException(upload);
 		}
 
-		blobStore.completeChunkedUpload(
-			toStorageKey(upload),
-			upload.getProviderId(),
-			upload.getChunkHashes()
-		);
+		if (upload.isChunked()) {
+			blobStore.completeChunkedUpload(
+				toStorageKey(upload),
+				upload.getProviderId(),
+				upload.getChunkHashes()
+			);
+		}
 
-		upload.setStatus(Upload.Status.SUCCEEDED, "done");
+		upload.setStatus(Upload.Status.SUCCEEDED, UploadStatusMessages.done());
 		return uploadRepository.save(upload);
 	}
 
 	public ObjectIdentifier toStorageKey(Upload upload) {
 		return ObjectIdentifier.of("uploads/%s".formatted(upload.getUuid()));
+	}
+
+	private Map<String, String> getUploadMetadata(Upload upload) {
+		return Map.of(
+			"user.id", "1",
+			"upload.id", String.valueOf(upload.getId()),
+			"upload.uuid", String.valueOf(upload.getUuid())
+		);
 	}
 
 }

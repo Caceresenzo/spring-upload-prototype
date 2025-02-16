@@ -17,7 +17,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.ExtensionMethod;
-import software.amazon.awssdk.http.SdkHttpMethod;
+import software.amazon.awssdk.awscore.presigner.PresignedRequest;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Utilities;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
@@ -25,10 +25,14 @@ import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListPartsRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.NoSuchUploadException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.UploadPartPresignRequest;
 
 @RequiredArgsConstructor
@@ -53,6 +57,44 @@ public class S3BlobStore implements BlobStore {
 		return MINIMUM_CHUNK_UPLOAD_SIZE;
 	}
 
+	@Override
+	public PresignedUploadRequest presignDirectUploadRequest(ObjectIdentifier identifier, Duration expiration, DataSize size, Map<String, String> metadata) {
+		final var response = s3Presigner.presignPutObject(
+			PutObjectPresignRequest.builder()
+				.putObjectRequest(
+					PutObjectRequest.builder()
+						.bucket(bucketName)
+						.key(identifier.key())
+						.ifNoneMatch("*")
+						.build()
+				)
+				.signatureDuration(expiration)
+				.build()
+		);
+
+		return mapPresignedRequest(response);
+	}
+
+	@Override
+	public HashValidationResult validateDirectHash(ObjectIdentifier identifier, String hash) {
+		try {
+			final var response = s3Client.headObject(
+				HeadObjectRequest.builder()
+					.bucket(bucketName)
+					.key(identifier.key())
+					.build()
+			);
+
+			if (!response.eTag().equals(hash)) {
+				return HashValidationResult.MISMATCH;
+			}
+
+			return HashValidationResult.VALID;
+		} catch (NoSuchKeyException __) {
+			return HashValidationResult.MISSING;
+		}
+	}
+
 	/**
 	 * Setting an expiration on multipart upload is not directly supported, a bucket policy must be created: https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpu-abort-incomplete-mpu-lifecycle-config.html
 	 */
@@ -71,7 +113,7 @@ public class S3BlobStore implements BlobStore {
 
 	@SneakyThrows
 	@Override
-	public PresignedUploadRequest presignChunkUploadUri(ObjectIdentifier identifier, String uploadId, Duration expiration, int chunkNumber, DataSize size) {
+	public PresignedUploadRequest presignChunkUploadRequest(ObjectIdentifier identifier, String uploadId, Duration expiration, int chunkNumber, DataSize size) {
 		final var response = s3Presigner.presignUploadPart(
 			UploadPartPresignRequest.builder()
 				.uploadPartRequest(
@@ -87,18 +129,11 @@ public class S3BlobStore implements BlobStore {
 				.build()
 		);
 
-		return new PresignedUploadRequest(
-			mapMethod(response.httpRequest().method()),
-			response.url().toURI(),
-			response.signedHeaders()
-				.entrySet()
-				.stream()
-				.collect(Collectors.toMap(Map.Entry::getKey, (entry) -> entry.getValue().getFirst()))
-		);
+		return mapPresignedRequest(response);
 	}
 
 	@Override
-	public ChunkHashValidationResult validateChunkHash(ObjectIdentifier identifier, String uploadId, int chunkNumber, String hash) {
+	public HashValidationResult validateChunkHash(ObjectIdentifier identifier, String uploadId, int chunkNumber, String hash) {
 		final var response = s3Client.listParts(
 			ListPartsRequest.builder()
 				.bucket(bucketName)
@@ -116,14 +151,14 @@ public class S3BlobStore implements BlobStore {
 			.orElse(null);
 
 		if (part == null) {
-			return ChunkHashValidationResult.MISSING;
+			return HashValidationResult.MISSING;
 		}
 
 		if (!part.eTag().equals(hash)) {
-			return ChunkHashValidationResult.MISMATCH;
+			return HashValidationResult.MISMATCH;
 		}
 
-		return ChunkHashValidationResult.VALID;
+		return HashValidationResult.VALID;
 	}
 
 	@Override
@@ -169,12 +204,23 @@ public class S3BlobStore implements BlobStore {
 		}
 	}
 
-	public static PresignedUploadRequest.HttpMethod mapMethod(SdkHttpMethod sdkHttpMethod) {
-		return switch (sdkHttpMethod) {
+	@SneakyThrows
+	private static PresignedUploadRequest mapPresignedRequest(PresignedRequest response) {
+		final var sdkHttpMethod = response.httpRequest().method();
+		final var method = switch (sdkHttpMethod) {
 			case POST -> PresignedUploadRequest.HttpMethod.POST;
 			case PUT -> PresignedUploadRequest.HttpMethod.PUT;
 			default -> throw new IllegalStateException("unsupport for upload method: %s".formatted(sdkHttpMethod));
 		};
+
+		final var uri = response.url().toURI();
+
+		final var headers = response.signedHeaders()
+			.entrySet()
+			.stream()
+			.collect(Collectors.toMap(Map.Entry::getKey, (entry) -> entry.getValue().getFirst()));
+
+		return new PresignedUploadRequest(method, uri, headers);
 	}
 
 }
