@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center h-screen">
+    <div class="bg-gray-800 p-6 rounded-lg shadow-lg text-center w-96">
+        <h2 class="text-xl font-bold mb-4">Upload a File</h2>
+        <input type="file" id="fileInput" class="w-full p-2 bg-gray-700 rounded mb-4 text-white">
+        <button onclick="uploadFile()"
+            class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded">Upload</button>
+        <p id="status" class="mt-4 text-gray-400">Status: Waiting for file selection...</p>
+        <div class="mt-4 w-full bg-gray-700 rounded-full h-2.5">
+            <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+        </div>
+    </div>
+    <script>
+        const BASE_URL = "http://localhost:8080";
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const statusElement = document.getElementById('status');
+            const progressBar = document.getElementById('progressBar');
+            if (!fileInput.files.length) {
+                alert("Please select a file");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            statusElement.textContent = "Status: Initializing upload...";
+            progressBar.style.width = "0%";
+
+            const response = await fetch(BASE_URL + "/v1/uploads", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: file.name,
+                    size: file.size,
+                    preferredChunkSize: 15000000,
+                }),
+            });
+
+            const upload = await response.json();
+            const uploadId = upload.id;
+            const totalChunks = upload.chunks.length;
+            let uploadedChunks = 0;
+
+            for (const chunk of upload.chunks) {
+                statusElement.textContent = `Status: Uploading chunk ${chunk.number}...`;
+
+                const chunkData = file.slice(chunk.offset, chunk.offset + chunk.size);
+
+                const presignedResponse = await fetch(`${BASE_URL}/v1/uploads/${uploadId}/chunks/${chunk.number}/request`);
+                const presignedRequest = await presignedResponse.json();
+
+                const hash = await uploadChunkWithProgress(presignedRequest, chunkData, (progress) => {
+                    const progressPercentage = ((uploadedChunks + progress) / totalChunks) * 100;
+                    progressBar.style.width = `${progressPercentage}%`;
+                });
+
+                const confirmResponse = await fetch(`${BASE_URL}/v1/uploads/${uploadId}/chunks/${chunk.number}/confirm`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ hash })
+                });
+                await confirmResponse.json();
+
+                uploadedChunks++;
+            }
+
+            statusElement.textContent = "Status: Finalizing upload...";
+            const completeResponse = await fetch(`${BASE_URL}/v1/uploads/${uploadId}/complete`, { method: "POST" });
+            const completeData = await completeResponse.json();
+            statusElement.textContent = "Status: Upload Complete!";
+            progressBar.style.width = "100%";
+            console.log("Upload Complete", completeData);
+        }
+
+        function uploadChunkWithProgress(presignedRequest, chunkData, onProgress) {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open(presignedRequest.method, presignedRequest.url, true);
+
+                for (const [key, value] of Object.entries(presignedRequest.headers)) {
+                    xhr.setRequestHeader(key, value);
+                }
+
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        const progress = event.loaded / event.total;
+                        onProgress(progress);
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        const hash = xhr.getResponseHeader("etag");
+                        resolve(hash);
+                    } else {
+                        reject(new Error(`Upload failed with status ${xhr.status}`));
+                    }
+                };
+
+                xhr.onerror = () => {
+                    reject(new Error("Upload failed"));
+                };
+
+                xhr.send(chunkData);
+            });
+        }
+    </script>
+</body>
+
+</html>
