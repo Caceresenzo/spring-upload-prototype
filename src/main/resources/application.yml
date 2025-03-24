@@ -5,6 +5,8 @@ amazon:
   bucket-name: crunchdao--playground--enzo
 logging:
   include-application-name: false
+#  level:
+#    org.hibernate.orm.jdbc.bind: trace
 spring:
   application:
     name: spring-upload-prototype

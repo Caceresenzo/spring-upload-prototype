@@ -1,5 +1,6 @@
 package com.example.demo.storage.aws;
 
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +25,9 @@ import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListPartsRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -46,6 +49,35 @@ public class S3BlobStore implements BlobStore {
 	private final @NonNull S3Utilities s3Utilities;
 	private final @NonNull S3Presigner s3Presigner;
 	private final @NonNull String bucketName;
+
+	@Override
+	public InputStream openStream(ObjectIdentifier identifier) {
+		return s3Client.getObject(
+			GetObjectRequest.builder()
+				.bucket(bucketName)
+				.key(identifier.key())
+				.versionId(identifier.versionId())
+				.build()
+		);
+	}
+
+	@Override
+	public ObjectIdentifier copy(ObjectIdentifier sourceIdentifier, ObjectIdentifier targetIdentifier) {
+		final var response = s3Client.copyObject(
+			CopyObjectRequest.builder()
+				.sourceBucket(bucketName)
+				.sourceKey(sourceIdentifier.key())
+				.sourceVersionId(sourceIdentifier.versionId())
+				.destinationBucket(bucketName)
+				.destinationKey(targetIdentifier.key())
+				.build()
+		);
+
+		return ObjectIdentifier.of(
+			targetIdentifier.key(),
+			response.versionId()
+		);
+	}
 
 	@Override
 	public DataSize getMaximumDirectUploadSize() {

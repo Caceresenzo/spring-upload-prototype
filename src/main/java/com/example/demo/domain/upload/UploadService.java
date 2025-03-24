@@ -1,5 +1,6 @@
 package com.example.demo.domain.upload;
 
+import java.io.InputStream;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -172,6 +173,19 @@ public class UploadService {
 
 		upload.setStatus(Upload.Status.SUCCEEDED, UploadStatusMessages.done());
 		return uploadRepository.save(upload);
+	}
+
+	public InputStream openStream(Upload upload) {
+		return blobStore.openStream(
+			toStorageKey(upload)
+		);
+	}
+
+	public void consume(Upload upload, ObjectIdentifier targetIdentifier) {
+		blobStore.copy(
+			toStorageKey(upload),
+			targetIdentifier
+		);
 	}
 
 	public ObjectIdentifier toStorageKey(Upload upload) {

@@ -1,6 +1,5 @@
 package com.example.demo.web.rest;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -53,19 +52,7 @@ public class UploadRestControllerV1 {
 	) {
 		final var upload = uploadService.getUpload(uploadId);
 
-		return uploadMapper.toDto(upload);
-	}
-
-	@GetMapping("{uploadId}/chunks")
-	public List<UploadChunkDto> listUploadChunks(
-		@PathVariable UUID uploadId
-	) {
-		final var upload = uploadService.getUpload(uploadId);
-
-		return upload.getChunks()
-			.stream()
-			.map(uploadMapper::toDto)
-			.toList();
+		return uploadMapper.toDtoWithChunks(upload);
 	}
 
 	@Transactional

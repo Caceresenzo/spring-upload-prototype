@@ -169,6 +169,10 @@ public class Upload {
 		this.statusMessage = message;
 	}
 
+	public boolean isSuccessful() {
+		return Status.SUCCEEDED.equals(status);
+	}
+
 	public enum Status {
 
 		PENDING,

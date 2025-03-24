@@ -1,5 +1,6 @@
 package com.example.demo.storage;
 
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -7,6 +8,10 @@ import java.util.Map;
 import org.springframework.util.unit.DataSize;
 
 public interface BlobStore {
+
+	InputStream openStream(ObjectIdentifier identifier);
+
+	ObjectIdentifier copy(ObjectIdentifier sourceIdentifier, ObjectIdentifier targetIdentifier);
 
 	DataSize getMaximumDirectUploadSize();
 
