@@ -47,6 +47,15 @@ public class UploadRestControllerV1 {
 		return uploadMapper.toDtoWithChunks(upload);
 	}
 
+	@GetMapping("{uploadId}")
+	public UploadDto showUpload(
+		@PathVariable UUID uploadId
+	) {
+		final var upload = uploadService.getUpload(uploadId);
+
+		return uploadMapper.toDto(upload);
+	}
+
 	@GetMapping("{uploadId}/chunks")
 	public List<UploadChunkDto> listUploadChunks(
 		@PathVariable UUID uploadId
