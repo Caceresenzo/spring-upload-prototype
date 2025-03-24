@@ -128,23 +128,21 @@ public class Upload {
 			offset += chunkSize;
 		}
 
-		if (remaining != 0) {
-			final var chunkSize = remaining;
-
-			addChunk(
-				offset,
-				chunkSize,
-				true
-			);
-
-			offset += chunkSize;
-		}
+		addChunk(
+			offset,
+			remaining,
+			true
+		);
 	}
 
 	private void addChunk(long offset, long size, boolean last) {
+		if (size <= 0) {
+			throw new IllegalArgumentException("size must be positive: %s".formatted(size));
+		}
+
 		this.chunks.add(new UploadChunk(
 			this,
-			this.chunks.size() + 1,
+			this.chunks.size() + 1l,
 			offset,
 			size,
 			last
