@@ -76,12 +76,14 @@ public class UploadService {
 		if (upload.isChunked()) {
 			upload.setStatus(Status.IN_PROGRESS, UploadStatusMessages.inProgress(chunk));
 
-			final var providerId = blobStore.beginChunkedUpload(
-				toStorageKey(upload),
-				getUploadMetadata(upload)
-			);
+			if (!upload.hasProviderId()) {
+				final var providerId = blobStore.beginChunkedUpload(
+					toStorageKey(upload),
+					getUploadMetadata(upload)
+				);
 
-			upload.setProviderId(providerId);
+				upload.setProviderId(providerId);
+			}
 
 			uploadRepository.save(upload);
 
