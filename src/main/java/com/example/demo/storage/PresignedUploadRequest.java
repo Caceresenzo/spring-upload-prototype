@@ -5,7 +5,7 @@ import java.util.Map;
 
 public record PresignedUploadRequest(
 	HttpMethod method,
-	URI uri,
+	URI url,
 	Map<String, String> headers
 ) {
 
