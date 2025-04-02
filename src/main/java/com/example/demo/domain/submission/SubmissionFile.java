@@ -37,13 +37,13 @@ public class SubmissionFile {
 	private long size;
 
 	@Column(nullable = false)
-	private String mime;
+	private String mediaType;
 
-	SubmissionFile(Submission submission, String name, long size, String mime) {
+	SubmissionFile(Submission submission, String name, long size, String mediaType) {
 		this.submission = submission;
 		this.name = name;
 		this.size = size;
-		this.mime = mime;
+		this.mediaType = mediaType;
 	}
 
 }

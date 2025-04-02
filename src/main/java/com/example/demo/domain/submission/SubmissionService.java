@@ -1,12 +1,10 @@
 package com.example.demo.domain.submission;
 
-import java.io.BufferedInputStream;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.apache.tika.Tika;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +27,6 @@ public class SubmissionService {
 	private final SubmissionRepository submissionRepository;
 
 	private final UploadService uploadService;
-	private final Tika tika;
 
 	@SneakyThrows
 	@Transactional(propagation = Propagation.REQUIRED)
@@ -52,21 +49,6 @@ public class SubmissionService {
 				this::getUpload
 			));
 
-		/* detect mime types */
-		for (final var entry : uploads.entrySet()) {
-			final var name = entry.getKey();
-			final var upload = entry.getValue();
-
-			log.info("detecting mime - submission.id={} name=`{}` upload.uuid={}", submission.getId(), name, upload.getUuid());
-
-			try (final var inputStream = uploadService.openStream(upload)) {
-				final var mime = tika.detect(new BufferedInputStream(inputStream), name);
-				log.info("detected mime - submission.id={} name=`{}` mime={}", submission.getId(), name, mime);
-
-				submission.addFile(name, upload.getSize(), mime);
-			}
-		}
-
 		/* copy to final location */
 		for (final var entry : uploads.entrySet()) {
 			final var name = entry.getKey();
@@ -78,6 +60,8 @@ public class SubmissionService {
 				upload,
 				toStorageKey(submission.getId(), name)
 			);
+
+			submission.addFile(name, upload.getSize(), upload.getMediaType());
 		}
 
 		log.info("saving - submission.id={}", submission.getId());

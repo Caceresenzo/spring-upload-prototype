@@ -17,6 +17,7 @@ public class UploadDto {
 	private UUID id;
 	private String name;
 	private long size;
+	private String mediaType;
 	private boolean chunked;
 	private Upload.Status status;
 	private String statusMessage;

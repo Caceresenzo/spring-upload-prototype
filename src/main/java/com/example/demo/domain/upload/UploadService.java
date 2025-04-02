@@ -1,16 +1,19 @@
 package com.example.demo.domain.upload;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.apache.tika.Tika;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.unit.DataSize;
 
 import com.example.demo.configuration.properties.UploadProperties;
+import com.example.demo.constant.Defaults;
 import com.example.demo.domain.upload.Upload.Provider;
 import com.example.demo.domain.upload.Upload.Status;
 import com.example.demo.domain.upload.exception.IncompleteUploadException;
@@ -34,6 +37,7 @@ public class UploadService {
 	private final UploadChunkRepository uploadChunkRepository;
 	private final UploadProperties uploadProperties;
 	private final BlobStore blobStore;
+	private final Tika tika;
 
 	@Transactional(propagation = Propagation.REQUIRED)
 	public Upload getUpload(UUID id) {
@@ -171,8 +175,24 @@ public class UploadService {
 			);
 		}
 
+		detectMediaType(upload);
+
 		upload.setStatus(Upload.Status.SUCCEEDED, UploadStatusMessages.done());
+
 		return uploadRepository.save(upload);
+	}
+
+	private void detectMediaType(Upload upload) {
+		try (final var inputStream = openStream(upload)) {
+			final var mediaType = tika.detect(inputStream, upload.getName());
+			upload.setMediaType(mediaType);
+
+			log.info("detected mime type - upload.id={} mediaType={}", upload.getId(), mediaType);
+		} catch (IOException exception) {
+			upload.setMediaType(Defaults.MEDIA_TYPE);
+
+			log.warn("could not detect mime type - upload.id=%s".formatted(upload.getId()), exception);
+		}
 	}
 
 	public InputStream openStream(Upload upload) {

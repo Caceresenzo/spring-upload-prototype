@@ -34,7 +34,7 @@ public class SubmissionMapper {
 			.setId(submissionFile.getId())
 			.setName(submissionFile.getName())
 			.setSize(submissionFile.getSize())
-			.setMime(submissionFile.getMime());
+			.setMediaType(submissionFile.getMediaType());
 	}
 
 }

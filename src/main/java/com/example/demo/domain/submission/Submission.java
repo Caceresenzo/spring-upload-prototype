@@ -62,8 +62,8 @@ public class Submission {
 		this.files = new ArrayList<>();
 	}
 
-	public void addFile(String name, long size, String mime) {
-		this.files.add(new SubmissionFile(this, name, size, mime));
+	public void addFile(String name, long size, String mediaType) {
+		this.files.add(new SubmissionFile(this, name, size, mediaType));
 	}
 
 }

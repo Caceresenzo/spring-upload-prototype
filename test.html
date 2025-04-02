@@ -63,6 +63,8 @@
                     progressBar.style.width = `${progressPercentage}%`;
                 });
 
+                // await uploadChunkWithProgress(presignedRequest, chunkData, (progress) => {});
+
                 const confirmResponse = await fetch(`${BASE_URL}/v1/uploads/${uploadId}/chunks/${chunk.number}/confirm`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },

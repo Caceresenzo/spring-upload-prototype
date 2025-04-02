@@ -1,4 +1,5 @@
 import requests
+import json
 
 BASE_URL = "http://localhost:8080"
 
@@ -13,13 +14,13 @@ with open("bbb_sunflower_1080p_30fps_normal.mp4", "rb") as fd:
 upload = requests.post(
     BASE_URL + "/v1/uploads",
     json={
-        "name": "hello.txt",
+        "name": "bbb_sunflower_1080p_30fps_normal.mp4",
         "size": len(DATA),
         "preferredChunkSize": 6291456,
     }
 ).json()
 
-print(upload)
+print(json.dumps(upload, indent=4))
 
 upload_id = upload["id"]
 hashes = []
@@ -59,8 +60,4 @@ for chunk in upload["chunks"]:
 print(hashes)
 upload = requests.post(
     BASE_URL + f"/v1/uploads/{upload_id}/complete",
-    # json={
-    #     "hashes": hashes
-    # }
 ).json()
-print(upload)

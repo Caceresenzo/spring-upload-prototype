@@ -10,6 +10,6 @@ public class SubmissionFileDto {
 	private long id;
 	private String name;
 	private long size;
-	private String mime;
+	private String mediaType;
 
 }

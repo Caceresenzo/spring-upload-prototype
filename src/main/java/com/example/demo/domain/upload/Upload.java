@@ -53,6 +53,9 @@ public class Upload {
 	private long size;
 
 	@Column
+	private String mediaType;
+
+	@Column
 	private boolean chunked;
 
 	@Enumerated(EnumType.STRING)
@@ -164,9 +167,11 @@ public class Upload {
 		return providerId != null;
 	}
 
-	public void setStatus(Status status, String message) {
+	public Upload setStatus(Status status, String message) {
 		this.status = status;
 		this.statusMessage = message;
+
+		return this;
 	}
 
 	public boolean isSuccessful() {
